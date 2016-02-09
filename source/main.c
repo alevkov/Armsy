@@ -5,39 +5,40 @@
 
 // Armstrap -> I2S3 port -> DAC -> audio output
 
-//void test_init_wt(char for_type, Note * with_note, wt_t * table)
-//{
-//	uint16_t A = with_note->amp;
-//
-//	table->size = 2*SAMPLE_RATE / with_note->freq; /* mult by 2 because 2 channels to DAC*/
-//
-//	volatile uint32_t i;
-//	if (for_type == 'q') /* SQR */
-//	{
-//		for (i = 0; i <= table->size / 2; i++) {
-//			if (i % 2)
-//			{
-//				table->table_array[i] = A/2;
-//			}
-//			else
-//			{
-//				table->table_array[i] = 0;
-//			}
-//		}
-//		for (i = table->size / 2; i <= table->size; i++) {
-//			if (i % 2)
-//			{
-//				table->table_array[i] = -A/2;
-//			}
-//			else
-//			{
-//				table->table_array[i] = 0;
-//			}
-//
-//		}
-//	}
-//
-//}
+// a function to test wave table
+void test_init_wt(char for_type, Note * with_note, wt_t * table)
+{
+	uint16_t A = with_note->amp;
+
+	table->size = 2*SAMPLE_RATE / with_note->freq; /* mult by 2 because 2 channels to DAC*/
+
+	volatile uint32_t i;
+	if (for_type == 'q') /* SQR */
+	{
+		for (i = 0; i <= table->size / 2; i++) {
+			if (i % 2)
+			{
+				table->table_array[i] = A/2;
+			}
+			else
+			{
+				table->table_array[i] = 0;
+			}
+		}
+		for (i = table->size / 2; i <= table->size; i++) {
+			if (i % 2)
+			{
+				table->table_array[i] = -A/2;
+			}
+			else
+			{
+				table->table_array[i] = 0;
+			}
+
+		}
+	}
+
+}
 
 void init()
 {
@@ -51,7 +52,7 @@ void blink()
 {
 	while (1) {
 		GPIOC->ODR ^= GPIO_Pin_1;
-		delay(500);
+		delay(50);
 	}
 }
 
