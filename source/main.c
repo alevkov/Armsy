@@ -49,7 +49,6 @@ void init()
 
 void blink()
 {
-
 	while (1) {
 		GPIOC->ODR ^= GPIO_Pin_1;
 		delay(500);
