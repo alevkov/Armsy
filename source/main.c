@@ -59,26 +59,26 @@ int main()
 {
 	init();
 
-//	Note a4;
-//	a4.amp = 1000;
-//	a4.freq = 1200;
-//	a4.idx = 69;
-//	wt_t table;
-//
-//	/* test triangle wave in A4 frequency (440) */
-//	test_init_wt('q', &a4, &table);
-//
-//	volatile int i = 0;
-//	while (1)
-//	{
-//		if(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE))
-//		{
-//		    SPI_I2S_SendData(SPI3, table->table_array[i]);
-//		    i++;
-//		    /* fall back to repeat period */
-//		    if(i>=table.size) i = 0;
-//		 }
-//	}
+	Note a4;
+	a4.amp = 1000;
+	a4.freq = 1200;
+	a4.idx = 69;
+	wt_t table;
+
+	/* test triangle wave in A4 frequency (440) */
+	test_init_wt('q', &a4, &table);
+
+	volatile int i = 0;
+	while (1)
+	{
+		if(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE))
+		{
+		    SPI_I2S_SendData(SPI3, table->table_array[i]);
+		    i++;
+		    /* fall back to repeat period */
+		    if(i>=table.size) i = 0;
+		 }
+	}
 
 	blink();
 }
