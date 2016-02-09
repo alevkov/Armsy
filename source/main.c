@@ -48,15 +48,14 @@ void init()
 	init_button();
 }
 
-void blink()
+void toggle_light()
 {
-	while (1) {
+
 		GPIOC->ODR ^= GPIO_Pin_1;
-		delay(50);
-	}
+		delay(90);
 }
 
-int main()
+void main()
 {
 	init();
 
@@ -67,21 +66,21 @@ int main()
 	wt_t table;
 
 	/* test triangle wave in A4 frequency (440) */
-	test_init_wt('q', &a4, &table);
+	test_init_wt('t', &a4, &table);
 
 	volatile int i = 0;
 	while (1)
 	{
 		if(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE))
 		{
-		    SPI_I2S_SendData(SPI3, table->table_array[i]);
+		    SPI_I2S_SendData(SPI3, table.table_array[i]);
 		    i++;
 		    /* fall back to repeat period */
 		    if(i>=table.size) i = 0;
 		 }
-	}
 
-	blink();
+		toggle_light();
+	}
 }
 
 
