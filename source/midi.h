@@ -30,16 +30,22 @@
 #ifndef SOURCE_MIDI_H_
 #define SOURCE_MIDI_H_
 
-//pin for UART2
-#define USART2_RX_PORT GPIOD
-#define USART2_RX_PIN GPIO_Pin_6   //port D
-#define USART2_RX_PIN_SRC GPIO_PinSource6
-#define USART2_PIN_AF GPIO_AF_USART2
+#define MIDI_USART_PORT         USART2
+#define MIDI_USART_PORT_RCC     RCC_APB1Periph_USART2
+#define MIDI_USART_BAUDRATE     31250
+#define MIDI_USART_DMA_REQ      USART_DMAReq_Rx
 
-#define MIDI_BAUD_RATE 31250 // standard MIDI Baud rate
+#define MIDI_GPIO_PORT          GPIOD
+#define MIDI_GPIO_PORT_RCC      RCC_AHB1Periph_GPIOD
+#define MIDI_GPIO_PIN_RX        GPIO_Pin_6
+#define MIDI_GPIO_PIN_RX_SRC    GPIO_PinSource6
+#define MIDI_GPIO_PIN_RX_AF     GPIO_AF_USART2
 
-#define MIDI_DATABYTES_ARRAY_SIZE 2
+#define MIDI_DMA_STREAM         DMA1_Stream5
+#define MIDI_DMA_RCC            RCC_AHB1Periph_DMA1
+#define MIDI_DMA_CHANNEL        DMA_Channel_4
 
+#define MIDI_BASIC_MSG_DATABYTES_MAX 2
 #define MIDI_MSG_TYPE_NOTE_OFF          0x80
 #define MIDI_MSG_TYPE_NOTE_ON           0x90
 #define MIDI_MSG_TYPE_AFTERTOUCH        0xA0
@@ -48,16 +54,15 @@
 #define MIDI_MSG_TYPE_CHAN_PRESSURE     0xD0
 #define MIDI_MSG_TYPE_PITCH_WHEEL       0xE0
 
-#define MIDI_MSG_STATE_CLEAR       0x00
-#define MIDI_MSG_STATE_INITIALIZED 0x01
-#define MIDI_MSG_STATE_UNREAD      0x02
+#define MIDI_MSG_STATUS_CLEAR       0x00
+#define MIDI_MSG_STATUS_INITIALIZED 0x01
+#define MIDI_MSG_STATUS_UNREAD      0x02
 
-#define MIDI_RAW_BUFFER_SIZE 30
+#define MIDI_RAW_BUFFER_SIZE 6
 #define MIDI_MSG_BUFFER_SIZE 8
 
 #define MIDI_NOTE_TABLE_SIZE 128
 #define MIDI_NOTE_A4_INDEX 69
-#define MIDI_NOTE_A4_FREQUENCY 440
 
 #include "stm32f4xx_rcc.h"
 #include "stm32f4xx_usart.h"
@@ -71,47 +76,42 @@
 
 #include "wave/wave.h"
 
-typedef struct { // defines MIDI message type
-	/*
-	 * 1) Array of data bytes, max size = 2
-	 * 2) State (CLEAR, INIT, UNREAD)
-	 * 3) Message type 0x80 - 0xE0
-	 * 4) Data byte idx [0], [1]
-	 * 5) Low nibble of status byte (channel)
-	 * 6) Number of data bytes
-	 */
-	uint8_t data[MIDI_DATABYTES_ARRAY_SIZE];
-	uint8_t state;
-	uint8_t msg_type;
-	uint8_t data_byte_index;
-	uint8_t low_nibble;
-	uint8_t number_of_data_bytes;
-} midi_msg_t;
+#include "fixedPoint.h"
 
-extern volatile uint8_t midi_raw_buffer[MIDI_RAW_BUFFER_SIZE]; // to be parsed
+typedef struct {
+    uint8_t msgType;
+    uint8_t lowNibble;
+    uint8_t dataBytes[MIDI_BASIC_MSG_DATABYTES_MAX];
+    uint8_t numberOfDataBytes;
+    uint8_t dataByteIndex;
+    uint8_t status;
+} Midi_basicMsg;
 
-extern midi_msg_t midi_msg_buffer[MIDI_MSG_BUFFER_SIZE];
+extern __IO uint8_t midi_rawBuffer[MIDI_RAW_BUFFER_SIZE];
 
-extern uint8_t midi_raw_buffer_idx;
-extern uint8_t midi_msg_buffer_write_idx;
-extern uint8_t midi_msg_buffer_read_idx;
+extern uint8_t midi_rawBufferIndex;
 
-extern Note midi_notes[MIDI_NOTE_TABLE_SIZE];
+extern Midi_basicMsg midi_msgBuffer[MIDI_MSG_BUFFER_SIZE];
+extern uint8_t midi_msgBufferWriteIndex;
+extern uint8_t midi_msgBufferReadIndex;
 
-void midi_init_buffers();
-void midi_init_notes_table();
-void midi_init_input_gpio();
-void midi_init_USART();
-void midi_init_DMA();
+extern FixedPoint midi_notes[MIDI_NOTE_TABLE_SIZE];
+
+//void midi_initBuffers();
+void midi_initNotesTable();
+void midi_initGpio();
+void midi_initUSART();
+void midi_initDMA();
 void midi_init();
 
-void add_databyte_to_msg(midi_msg_t * msg, uint8_t byte); // if possible!
-_Bool msg_is_full(midi_msg_t * msg);
+uint8_t midi_getNumberOfDataBytesForMsgType(uint8_t msgType);
 
-uint8_t get_num_of_databytes_by_msg_type(uint8_t msg_type);
-uint8_t get_midi_message_type(midi_msg_t * msg);
+void midi_initMsg(Midi_basicMsg * msg, uint8_t byte);
+void midi_addDataByteToMsgIfAble(Midi_basicMsg * msg, uint8_t byte);
 
-void sync_raw_buffer();
+void midi_catchUpWithRawBuffer();
+
+int midi_getMsgIfAble(Midi_basicMsg * msg);
 
 #endif /* SOURCE_MIDI_H_ */
 

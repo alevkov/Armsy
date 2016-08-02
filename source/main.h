@@ -22,40 +22,23 @@ THE SOFTWARE.
 /*
  * INCLUDES
  */
-
-
 #include "defines.h"
-#include "midi.h"
 #include "misc.h"
-
-
-/*
- * ~INCLUDES
- */
-
-
+#include "midi.h"
 /*
  * PROTOTYPES
  */
-
-
-
 /* initialize pins, UART, I2S, etc. */
 void init();
 
-/* initialize external interrupts */
-void init_ei();
-
-/* initialize LED */
 void init_led();
-
 /* initialize i2s port */
 void init_i2s();
-
 /* initialize button */
-void init_button();
+void init_USART2();
 
-/* delay function for general bumming around */
-void delay(uint32_t ms);
 
+void delay_for(uint32_t ms);
 void test_note();
+
+float noteNumToFreq(uint8_t noteNumber);

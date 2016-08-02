@@ -13,7 +13,7 @@
 
 #define WT_SIZE 4096
 
-#define TEST_AMPLITUDE 1000
+#define TEST_AMPLITUDE 10000
 #define SAMPLE_RATE 48000
 
 #define PI 3.14169265
@@ -21,12 +21,11 @@
 #include "../note.h"
 
 typedef uint8_t WT_ARRAY[WT_SIZE];
-
 typedef struct {
 	/*
 	 * type: 's' : sine
 	 *  	 'q' : square
-	 *  	 't' : tri
+	 *  	 't' : saw
 	 */
 	char type;
 	/* max size is 4096

@@ -15,7 +15,13 @@
 #ifndef SOURCE_DEFINES_H_
 #define SOURCE_DEFINES_H_
 
-#define LED_PIN			GPIO_Pin_1;
+/* Types */
+
+typedef char FLAG;
+
+/* Pins */
+
+#define LED_PIN			GPIO_Pin_1
 
 //pins for I2S
 #define I2S3_WS_PIN 	GPIO_Pin_4   //port A

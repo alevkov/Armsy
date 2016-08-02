@@ -21,4 +21,4 @@ source/midi.o: ../source/midi.c ../source/midi.h \
  /Users/lexlevi/Documents/workspace/Armsy/includes/STM32F4xx_StdPeriph_Driver/inc/stm32f4xx_exti.h \
  /Users/lexlevi/Documents/workspace/Armsy/includes/STM32F4xx_StdPeriph_Driver/inc/stm32f4xx_spi.h \
  /Users/lexlevi/Documents/workspace/Armsy/includes/STM32F4xx_StdPeriph_Driver/inc/stm32f4xx_i2c.h \
- ../source/wave/wave.h ../source/wave/../note.h
+ ../source/wave/wave.h ../source/wave/../note.h ../source/fixedPoint.h

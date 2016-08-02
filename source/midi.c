@@ -1,140 +1,204 @@
-/*
- * midi.c
-
-
- *
- *  Created on: Sep 23, 2015
- *      Author: lexlevi
- */
-
 #include "midi.h"
 
-void midi_init_buffers()
+__IO uint8_t midi_rawBuffer[MIDI_RAW_BUFFER_SIZE];
+
+uint8_t midi_rawBufferIndex;
+
+Midi_basicMsg midi_msgBuffer[MIDI_MSG_BUFFER_SIZE];
+uint8_t midi_msgBufferWriteIndex;
+uint8_t midi_msgBufferReadIndex;
+
+FixedPoint midi_notes[MIDI_NOTE_TABLE_SIZE];
+
+void midi_initBuffers() 
 {
-	volatile uint8_t i, j = 0;
+    int i = 0;
+    for(i = 0; i < MIDI_RAW_BUFFER_SIZE; i++) {
+        midi_rawBuffer[i] = 0xff;
+    }
 
-	while (i < MIDI_RAW_BUFFER_SIZE)
-	{
-		midi_raw_buffer[i] = 0xFF;
-		i++;
-	}
+    midi_rawBufferIndex = 0;
+    midi_msgBufferWriteIndex = 0;
+    midi_msgBufferReadIndex = 0;
 
-
-	while (j < MIDI_MSG_BUFFER_SIZE)
-	{
-		//..1000nnnn	0kkkkkkk	0vvvvvvv	Note Off
-		midi_msg_buffer[j].state = MIDI_MSG_STATE_CLEAR;
-		j++;
-	}
-
-	midi_msg_buffer_write_idx = 0;
-	midi_msg_buffer_read_idx = 0;
+    for(i = 0; i < MIDI_MSG_BUFFER_SIZE; i++){
+        midi_msgBuffer[i].status = MIDI_MSG_STATUS_CLEAR;
+    }
 }
 
-void midi_init_notes_table()
-{ // generate wavetable based on note
-	/* Values from 0 to 127 that indicate pitch */
-//	volatile int i;
-//	Note note;
-//
-//	note.amp = 1000;
-//	note.idx = MIDI_NOTE_A4_INDEX;
-//	calc_freq_for_note(&note, MIDI_NOTE_A4_INDEX); // n->freq = 440
-//
-//	midi_notes[MIDI_NOTE_A4_INDEX] = note;
+void midi_initNotesTable()
+{
+
+    midi_notes[MIDI_NOTE_A4_INDEX].p.i = 440; // A4
+    midi_notes[MIDI_NOTE_A4_INDEX].p.f = 0;
+
+    FixedPoint currentNote;
+
+    int offset = 0;
+    int i = 0;
+    for(; i < 128; i++){
+        currentNote.c = midi_notes[MIDI_NOTE_A4_INDEX].c;
+
+        offset = i - MIDI_NOTE_A4_INDEX;
+
+        while(offset > 11){
+            offset -= 12;
+            currentNote.c <<= 1;
+        }
+        while(offset > 0){
+            offset--;
+            currentNote.c *= 1.059463; // roughly a semitone: 2^(1/12)
+        }
+
+        while(offset < -11){
+            offset += 12;
+            currentNote.c >>= 1;
+        }
+        while(offset < 0){
+            offset++;
+            currentNote.c *= 0.9438743; // roughly a semitone: 2^(-1/12)
+        }
+        midi_notes[i].c = currentNote.c;
+    }
 }
 
-void midi_init_input_gpio()
-{
-	/* Enable D6 Pin clock (Rx) */
-		RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
+void midi_initGpio() {
+    RCC_AHB1PeriphClockCmd(MIDI_GPIO_PORT_RCC, ENABLE);
 
-	/*	Only Rx because we are only receiving MIDI */
-		GPIO_InitTypeDef USARTGPIOStruct;
-		USARTGPIOStruct.GPIO_Pin = USART2_RX_PIN;
-		USARTGPIOStruct.GPIO_Mode = GPIO_Mode_AF;
-		USARTGPIOStruct.GPIO_OType = GPIO_OType_PP;
-		USARTGPIOStruct.GPIO_Speed = GPIO_Speed_50MHz;
-		USARTGPIOStruct.GPIO_PuPd = GPIO_PuPd_NOPULL;
-		GPIO_Init(GPIOD, &USARTGPIOStruct);
+    GPIO_InitTypeDef gpioInitStruct;
+    gpioInitStruct.GPIO_Pin = MIDI_GPIO_PIN_RX;
+    gpioInitStruct.GPIO_Mode = GPIO_Mode_AF;
+    gpioInitStruct.GPIO_OType = GPIO_OType_PP;
+    gpioInitStruct.GPIO_PuPd = GPIO_PuPd_NOPULL;
+    gpioInitStruct.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(MIDI_GPIO_PORT, &gpioInitStruct);
 
-		GPIO_PinAFConfig(USART2_RX_PORT, USART2_RX_PIN_SRC, USART2_PIN_AF);
+    GPIO_PinAFConfig(MIDI_GPIO_PORT,MIDI_GPIO_PIN_RX_SRC,GPIO_AF_USART2);
 }
 
-void midi_init_USART()
-{
-	/* USART configuration data
-		            - BaudRate = 31250
-		            - Word Length = 8 Bits
-		            - One Stop Bit
-		            - No parity
-		            - Hardware flow control disabled (RTS and CTS signals)
-		            - Rx enabled only
-		 */
-		/* Enable USART2 clock */
-		RCC_APB2PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
+void midi_initUSART() {
+    RCC_APB1PeriphClockCmd(MIDI_USART_PORT_RCC, ENABLE);
 
-		/* Init USART type */
-		USART_InitTypeDef USART_InitStruct;
+    USART_InitTypeDef usartInitStruct;
 
-		/* USART Config */
-		USART_InitStruct.USART_BaudRate = MIDI_BAUD_RATE;
-		USART_InitStruct.USART_WordLength = USART_WordLength_8b;
-		USART_InitStruct.USART_StopBits = USART_StopBits_1;
-		USART_InitStruct.USART_Parity = USART_Parity_No;
-		USART_InitStruct.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-		USART_InitStruct.USART_Mode = USART_Mode_Rx;
-		USART_Init(USART2, &USART_InitStruct);
-
-		/* Enable USART2 */
-		USART_Cmd(USART2, ENABLE);
+    usartInitStruct.USART_BaudRate = MIDI_USART_BAUDRATE;
+    usartInitStruct.USART_WordLength = USART_WordLength_8b;
+    usartInitStruct.USART_StopBits = USART_StopBits_1;
+    usartInitStruct.USART_Parity = USART_Parity_No;
+    usartInitStruct.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+    usartInitStruct.USART_Mode = USART_Mode_Rx;
+    USART_Init(MIDI_USART_PORT,&usartInitStruct);
+    USART_Cmd(MIDI_USART_PORT,ENABLE);
 }
 
-void midi_init_DMA()
-{
-	//..
+void midi_initDMA() {
+    DMA_DeInit(MIDI_DMA_STREAM);
+    RCC_AHB1PeriphClockCmd(MIDI_DMA_RCC, ENABLE);
+
+    DMA_InitTypeDef dmaInitStruct;
+    dmaInitStruct.DMA_Channel = MIDI_DMA_CHANNEL;
+    dmaInitStruct.DMA_PeripheralBaseAddr = (uint32_t)(&MIDI_USART_PORT->DR);
+    dmaInitStruct.DMA_Memory0BaseAddr = (uint32_t)midi_rawBuffer;
+    dmaInitStruct.DMA_DIR = DMA_DIR_PeripheralToMemory;
+    dmaInitStruct.DMA_BufferSize = MIDI_RAW_BUFFER_SIZE;
+    dmaInitStruct.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+    dmaInitStruct.DMA_MemoryInc = DMA_MemoryInc_Enable;
+    dmaInitStruct.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+    dmaInitStruct.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
+    dmaInitStruct.DMA_Mode = DMA_Mode_Circular;
+    dmaInitStruct.DMA_Priority = DMA_Priority_High;
+    dmaInitStruct.DMA_FIFOMode = DMA_FIFOMode_Disable;
+    dmaInitStruct.DMA_FIFOThreshold = DMA_FIFOThreshold_HalfFull;
+    dmaInitStruct.DMA_MemoryBurst = DMA_MemoryBurst_Single;
+    dmaInitStruct.DMA_PeripheralBurst = DMA_MemoryBurst_Single;
+    DMA_Init(MIDI_DMA_STREAM,&dmaInitStruct);
+    DMA_Cmd(MIDI_DMA_STREAM,ENABLE);
+
+    USART_DMACmd(MIDI_USART_PORT, MIDI_USART_DMA_REQ, ENABLE);
 }
 
-void midi_init()
-{
-	midi_init_buffers();
-	midi_init_input_gpio();
-	midi_init_USART();
+void midi_init() {
+//    midi_initBuffers();
+//    midi_initNotesTable();
+//    midi_initGpio();
+//    midi_initUSART();
+//    midi_initDMA();
+
 }
 
-uint8_t get_num_of_databytes_by_msg_type (uint8_t type)
+uint8_t midi_getNumberOfDataBytesForMsgType(uint8_t msgType) 
 {
-	switch(type) {
-	    case MIDI_MSG_TYPE_NOTE_OFF:
-	        return 2;
-	    case MIDI_MSG_TYPE_NOTE_ON:
-	        return 2;
-	    case MIDI_MSG_TYPE_AFTERTOUCH:
-	        return 2;
-	    case MIDI_MSG_TYPE_CTRL_CHANGE:
-	        return 2;
-	    case MIDI_MSG_TYPE_PROGRAM_CHANGE:
-	        return 1;
-	    case MIDI_MSG_TYPE_CHAN_PRESSURE:
-	        return 1;
-	    case MIDI_MSG_TYPE_PITCH_WHEEL:
-	        return 2;
-	    default:
-	        return 0;
-	    }
+    switch(msgType) {
+    case MIDI_MSG_TYPE_NOTE_OFF:
+        return 2;
+    case MIDI_MSG_TYPE_NOTE_ON:
+        return 2;
+    case MIDI_MSG_TYPE_AFTERTOUCH:
+        return 2;
+    case MIDI_MSG_TYPE_CTRL_CHANGE:
+        return 2;
+    case MIDI_MSG_TYPE_PROGRAM_CHANGE:
+        return 1;
+    case MIDI_MSG_TYPE_CHAN_PRESSURE:
+        return 1;
+    case MIDI_MSG_TYPE_PITCH_WHEEL:
+        return 2;
+    default:
+        return 0;
+    }
 }
 
-/*
- * usart_getchar()
- * This function will provide an interface for receiving a byte of MIDI information
- */
-uint16_t usart_getchar(USART_TypeDef* USARTx)
+void midi_catchUpWithRawBuffer() 
 {
-	while( !(USARTx->SR & USART_FLAG_RXNE) );
-	return USART_ReceiveData(USARTx);
+    uint8_t currentByte = 0;
+    Midi_basicMsg * currentMsg;
+    while(midi_rawBuffer[midi_rawBufferIndex] != 0xff) {
+        if(midi_msgBuffer[midi_msgBufferWriteIndex].status != MIDI_MSG_STATUS_UNREAD) { // space left in buffer?
+            currentByte = midi_rawBuffer[midi_rawBufferIndex];
+            currentMsg = &midi_msgBuffer[midi_msgBufferWriteIndex];
+
+            if(currentByte > 127) { // status byte?
+                currentMsg->msgType = currentByte & 0xf0;
+                currentMsg->lowNibble = currentByte & 0x0f;
+                currentMsg->numberOfDataBytes = midi_getNumberOfDataBytesForMsgType(currentMsg->msgType);
+                currentMsg->dataByteIndex = 0;
+                currentMsg->status = MIDI_MSG_STATUS_INITIALIZED;
+
+            } else if(currentMsg->status == MIDI_MSG_STATUS_INITIALIZED // current message has been initialized?
+                    && currentMsg->dataByteIndex < currentMsg->numberOfDataBytes) { // still space left for more databytes?
+                currentMsg->dataBytes[currentMsg->dataByteIndex++] = currentByte;
+            }
+
+            if(currentMsg->status == MIDI_MSG_STATUS_INITIALIZED // current message initialized?
+                && currentMsg->dataByteIndex == currentMsg->numberOfDataBytes) { // current message full and ready?
+
+                currentMsg->status = MIDI_MSG_STATUS_UNREAD; // mark as unread and on to the next one
+                midi_msgBufferWriteIndex++;
+                if(midi_msgBufferWriteIndex == MIDI_MSG_BUFFER_SIZE) midi_msgBufferWriteIndex = 0;
+            }
+
+            midi_rawBuffer[midi_rawBufferIndex++] = 0xff;
+            if(midi_rawBufferIndex == MIDI_RAW_BUFFER_SIZE) midi_rawBufferIndex = 0;
+        } else { // no space left in buffer
+            break; // break from loop and come back next function call
+        }
+    }
 }
 
-_Bool msg_is_full(midi_msg_t * msg)
+int midi_getMsgIfAble(Midi_basicMsg * msg) 
 {
-	return msg->number_of_data_bytes == 2;
+    midi_catchUpWithRawBuffer();
+
+    Midi_basicMsg * outputMsg = &midi_msgBuffer[midi_msgBufferReadIndex];
+
+    if(outputMsg->status == MIDI_MSG_STATUS_UNREAD){ // message is ready
+        *msg = *outputMsg;
+
+        outputMsg->status = MIDI_MSG_STATUS_CLEAR; // clear status to indicate that it has been read.
+
+        midi_msgBufferReadIndex++;
+        if(midi_msgBufferReadIndex == MIDI_MSG_BUFFER_SIZE) midi_msgBufferReadIndex = 0;
+        return 1;
+    }
+    return 0;
 }
