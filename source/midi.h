@@ -30,20 +30,18 @@
 #ifndef SOURCE_MIDI_H_
 #define SOURCE_MIDI_H_
 
+#define SAMPLE_RATE 			48000
+#define BASE_AMP				1000
+
 #define MIDI_USART_PORT         USART2
 #define MIDI_USART_PORT_RCC     RCC_APB1Periph_USART2
 #define MIDI_USART_BAUDRATE     31250
-#define MIDI_USART_DMA_REQ      USART_DMAReq_Rx
 
 #define MIDI_GPIO_PORT          GPIOD
 #define MIDI_GPIO_PORT_RCC      RCC_AHB1Periph_GPIOD
 #define MIDI_GPIO_PIN_RX        GPIO_Pin_6
 #define MIDI_GPIO_PIN_RX_SRC    GPIO_PinSource6
 #define MIDI_GPIO_PIN_RX_AF     GPIO_AF_USART2
-
-#define MIDI_DMA_STREAM         DMA1_Stream5
-#define MIDI_DMA_RCC            RCC_AHB1Periph_DMA1
-#define MIDI_DMA_CHANNEL        DMA_Channel_4
 
 #define MIDI_BASIC_MSG_DATABYTES_MAX 2
 #define MIDI_MSG_TYPE_NOTE_OFF          0x80
@@ -96,13 +94,6 @@ extern uint8_t midi_msgBufferWriteIndex;
 extern uint8_t midi_msgBufferReadIndex;
 
 extern FixedPoint midi_notes[MIDI_NOTE_TABLE_SIZE];
-
-//void midi_initBuffers();
-void midi_initNotesTable();
-void midi_initGpio();
-void midi_initUSART();
-void midi_initDMA();
-void midi_init();
 
 uint8_t midi_getNumberOfDataBytesForMsgType(uint8_t msgType);
 

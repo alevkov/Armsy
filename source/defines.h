@@ -1,11 +1,6 @@
 /*
  * defines.h
  *
-************************TEMPORARY************************
-************************TEMPORARY************************
-************************TEMPORARY************************
-************************TEMPORARY************************
-************************TEMPORARY************************
 
  *
  *  Created on: Sep 20, 2015
@@ -14,6 +9,12 @@
 
 #ifndef SOURCE_DEFINES_H_
 #define SOURCE_DEFINES_H_
+
+/* Constants */
+
+const float PI = 3.141592653589;
+const float SEMITONE_UP = 1.059463;
+const float SEMITONE_DOWN = 0.9438743;
 
 /* Types */
 

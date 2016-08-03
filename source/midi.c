@@ -91,31 +91,31 @@ void midi_initUSART() {
     USART_Cmd(MIDI_USART_PORT,ENABLE);
 }
 
-void midi_initDMA() {
-    DMA_DeInit(MIDI_DMA_STREAM);
-    RCC_AHB1PeriphClockCmd(MIDI_DMA_RCC, ENABLE);
+// void midi_initDMA() {
+//     DMA_DeInit(MIDI_DMA_STREAM);
+//     RCC_AHB1PeriphClockCmd(MIDI_DMA_RCC, ENABLE);
 
-    DMA_InitTypeDef dmaInitStruct;
-    dmaInitStruct.DMA_Channel = MIDI_DMA_CHANNEL;
-    dmaInitStruct.DMA_PeripheralBaseAddr = (uint32_t)(&MIDI_USART_PORT->DR);
-    dmaInitStruct.DMA_Memory0BaseAddr = (uint32_t)midi_rawBuffer;
-    dmaInitStruct.DMA_DIR = DMA_DIR_PeripheralToMemory;
-    dmaInitStruct.DMA_BufferSize = MIDI_RAW_BUFFER_SIZE;
-    dmaInitStruct.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-    dmaInitStruct.DMA_MemoryInc = DMA_MemoryInc_Enable;
-    dmaInitStruct.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-    dmaInitStruct.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-    dmaInitStruct.DMA_Mode = DMA_Mode_Circular;
-    dmaInitStruct.DMA_Priority = DMA_Priority_High;
-    dmaInitStruct.DMA_FIFOMode = DMA_FIFOMode_Disable;
-    dmaInitStruct.DMA_FIFOThreshold = DMA_FIFOThreshold_HalfFull;
-    dmaInitStruct.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-    dmaInitStruct.DMA_PeripheralBurst = DMA_MemoryBurst_Single;
-    DMA_Init(MIDI_DMA_STREAM,&dmaInitStruct);
-    DMA_Cmd(MIDI_DMA_STREAM,ENABLE);
+//     DMA_InitTypeDef dmaInitStruct;
+//     dmaInitStruct.DMA_Channel = MIDI_DMA_CHANNEL;
+//     dmaInitStruct.DMA_PeripheralBaseAddr = (uint32_t)(&MIDI_USART_PORT->DR);
+//     dmaInitStruct.DMA_Memory0BaseAddr = (uint32_t)midi_rawBuffer;
+//     dmaInitStruct.DMA_DIR = DMA_DIR_PeripheralToMemory;
+//     dmaInitStruct.DMA_BufferSize = MIDI_RAW_BUFFER_SIZE;
+//     dmaInitStruct.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+//     dmaInitStruct.DMA_MemoryInc = DMA_MemoryInc_Enable;
+//     dmaInitStruct.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+//     dmaInitStruct.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
+//     dmaInitStruct.DMA_Mode = DMA_Mode_Circular;
+//     dmaInitStruct.DMA_Priority = DMA_Priority_High;
+//     dmaInitStruct.DMA_FIFOMode = DMA_FIFOMode_Disable;
+//     dmaInitStruct.DMA_FIFOThreshold = DMA_FIFOThreshold_HalfFull;
+//     dmaInitStruct.DMA_MemoryBurst = DMA_MemoryBurst_Single;
+//     dmaInitStruct.DMA_PeripheralBurst = DMA_MemoryBurst_Single;
+//     DMA_Init(MIDI_DMA_STREAM,&dmaInitStruct);
+//     DMA_Cmd(MIDI_DMA_STREAM,ENABLE);
 
-    USART_DMACmd(MIDI_USART_PORT, MIDI_USART_DMA_REQ, ENABLE);
-}
+//     USART_DMACmd(MIDI_USART_PORT, MIDI_USART_DMA_REQ, ENABLE);
+// }
 
 void midi_init() {
 //    midi_initBuffers();

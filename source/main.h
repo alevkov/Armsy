@@ -42,3 +42,4 @@ void delay_for(uint32_t ms);
 void test_note();
 
 float noteNumToFreq(uint8_t noteNumber);
+void clearMidiMsg();

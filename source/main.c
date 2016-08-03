@@ -1,64 +1,15 @@
 #include "main.h"
 #include "math.h"
 
-
-#define MAX_STRLEN 6 // this is the maximum string length of our string in characters
-
 /* Sine wave */
-int SAMPLE[368];
 float SAMPLE_SIZE;
+int * sample;
 
 /* Midi data */
 FLAG message_received;
-volatile uint16_t midi_raw_buffer[6]; // this will hold the recieved string
-volatile static uint8_t midi_buffer_counter = 0; // this counter is used to determine the string length
-Midi_basicMsg *message;
+Midi_basicMsg message;
 
-float noteNumToFreq(uint8_t noteNumber) 
-{
-	s8 offset = noteNumber - 69;  //difference from A4 (440Hz, MIDI-note 69)
-	float freq = 440.0f;
- 
-	if (offset > 0) 
-	{
-		while (offset > 11) {
-			offset -= 12;
-			freq *= 2.0f;
-		}
-		while (offset > 0) {
-			offset--;
-			freq *= 1.059463;  // 2^(1/12)
-		}
-	} 
-	else if (offset < 0)
-	{
-		while (offset < -11) {
-			offset += 12;
-			freq *= 0.5f;
-		}
-		while (offset < 0) {
-			offset++;
-			freq *= 0.9438743f; // 2^(-1/12)
-		}
-	}
-	return freq;
-}
-
-
-void generateArray(int* AUDIO_SAMPLE, float freq)
-{
-	int amp = 1000; //amplitude of wave (within 16bit signed integer)
-	int SR = 48000; //sample rate of I2S channel
-	SAMPLE_SIZE = 2 * SR / freq;
-	int i;
-	for(i = 0; i <= SAMPLE_SIZE; i++){ //mult SR/Freq by 2 b/c of two channels
-		if(i % 2) {
-			AUDIO_SAMPLE[i] = amp * sin(2 * 3.14 * (i / SAMPLE_SIZE));
-		}
-		else
-			AUDIO_SAMPLE[i] = 0; //left channel
-	}
-}
+#pragma mark - Misc
 
 void toggle_light(uint32_t delay)
 {
@@ -66,45 +17,107 @@ void toggle_light(uint32_t delay)
 	delay_for(delay);
 }
 
-void delay_for(uint32_t ms)
+void delay_for(uint32_t d)
 {
-    ms *= 1075; // for 8Mhz xtal
-    while(ms--)
+    d *= 500;
+    while(d--)
     {
     	__asm__ volatile ("nop");
     }
 }
 
+#pragma mark - Sound and Midi
+
+float note_num_to_freq(uint8_t noteNumber) 
+{
+	int offset = noteNumber - 69;  //difference from A4 (440Hz, MIDI-note 69)
+	float freq = 440.0;
+ 
+	if (offset > 0) 
+	{
+		while (offset > 11) {
+			offset -= 12;
+			freq *= 2.0;
+		}
+		while (offset > 0) {
+			offset--;
+			freq *= SEMITONE_UP;  // 2^(1/12)
+		}
+	} 
+	else if (offset < 0)
+	{
+		while (offset < -11) {
+			offset += 12;
+			freq *= 0.5;
+		}
+		while (offset < 0) {
+			offset++;
+			freq *= SEMITONE_DOWN; // 2^(-1/12)
+		}
+	}
+	return freq;
+}
+
+float sample_size(float freq)
+{
+	SAMPLE_SIZE = (2 * SAMPLE_RATE / freq);
+	return SAMPLE_SIZE;
+}
+
+int * generate_sample_array(float freq, uint16_t size)
+{
+	int s[size];
+	int i;
+	for(i = 0; i <= size; i++) {
+		s[i] = (sin(2 * PI * (i / (2 * SAMPLE_RATE / freq)))) >= 0 ? (BASE_AMP * 1) : (BASE_AMP * -1);
+	}
+	return s;
+}
+
+#pragma mark - Init
+
 void init()
 {
-	/*
-	 * Init
-	 */
    init_led();
    init_USART2(MIDI_USART_BAUDRATE);
    init_i2s();
 }
 
+#pragma mark - Main
+
 int main()
 {
    init();
+   clearMidiMsg();
+
    volatile int i = 0;
    for (;;) 
    {	
-   		if (message_received)
+   		if (message.status == MIDI_MSG_STATUS_UNREAD)
    		{
-   			// clear flag for midi received
-   			message_received = 0;
-   			// generate frequency based on note value
-   			float freq = noteNumToFreq(midi_raw_buffer[1]);
-   			generateArray(SAMPLE, freq);
-   		} else {
-   			if(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE))
+   			message.status = MIDI_MSG_STATUS_CLEAR;
+   			/* generate frequency based on note value */
+   			if (message.msgType == MIDI_MSG_TYPE_NOTE_ON)
    			{
-   				SPI_I2S_SendData(SPI3, SAMPLE[i]);
-   				i++;
-   				if(i >= (uint16_t)SAMPLE_SIZE) i = 0;
+   				float freq = note_num_to_freq(message.dataBytes[0]);
+
+   				uint16_t size = (uint16_t)sample_size(freq);
+   				sample = generate_sample_array(freq, size);
    			}
+   		}
+   		if(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) && message.msgType == MIDI_MSG_TYPE_NOTE_ON && message.status == MIDI_MSG_STATUS_CLEAR)
+   		{
+   			if (i % 2)
+   			{
+   				SPI_I2S_SendData(SPI3, *(sample + i));
+   			}
+   			else
+   			{
+   				SPI_I2S_SendData(SPI3, 0x00);
+   			}
+   			
+   			i++;
+   			if(i >= (uint16_t)SAMPLE_SIZE) i = 0;
    		}
 	}
 	return 0;
@@ -191,52 +204,42 @@ void init_i2s() {
 	I2S_Cmd(SPI3, ENABLE);
 }
 
+void clearMidiMsg()
+{
+	message.status = MIDI_MSG_STATUS_CLEAR;
+	message.msgType = 0;
+	message.dataByteIndex = 0;
+	int i = 0;
+	for (; i < MIDI_BASIC_MSG_DATABYTES_MAX; ++i) {
+		message.dataBytes[i] = 0;
+	}
+
+}
+
 void USART2_IRQHandler(void)
 {
 	while(USART_GetITStatus(MIDI_USART_PORT, USART_IT_RXNE)) {
 		GPIOC->ODR |= ((uint16_t)0x0002);
 
-		message_received = 1;
-		// fill raw buffer
 		if (USART_ReceiveData(MIDI_USART_PORT) == MIDI_MSG_TYPE_NOTE_OFF)
 		{
-			midi_buffer_counter = 6 / 2;
+			message.msgType = MIDI_MSG_TYPE_NOTE_OFF;
+			/* resets data byte counter for next message */
+			message.dataByteIndex = 0;
+			break;
 		}
-		midi_raw_buffer[midi_buffer_counter++] = USART_ReceiveData(MIDI_USART_PORT);
-		delay_for(1);
+		else if (USART_ReceiveData(MIDI_USART_PORT) == MIDI_MSG_TYPE_NOTE_ON)
+		{
+			message.msgType = MIDI_MSG_TYPE_NOTE_ON;
+			message.dataByteIndex = 0;
+		}
+		else {
+			/* data byte received */
+			message.status = MIDI_MSG_STATUS_UNREAD;
+			message.dataBytes[message.dataByteIndex++] = USART_ReceiveData(MIDI_USART_PORT);
+		}
 
 		GPIOC->ODR &= ~((uint16_t)0x0002);
 	}
-	midi_buffer_counter = 0;
 }
-
-// void clearMsg()
-// {
-// 	for (int i = 0; i < MIDI_RAW_BUFFER_SIZE; ++i)
-// 	{
-// 		midi_raw_buffer[i] = 0;
-// 	}
-// }
-
-// void USART2_IRQHandler(void)
-// {
-// 	while(USART_GetITStatus(MIDI_USART_PORT, USART_IT_RXNE)) {
-// 		GPIOC->ODR |= ((uint16_t)0x0002);
-
-// 		message_received = 1;
-// 		if (USART_ReceiveData(MIDI_USART_PORT) == MIDI_MSG_TYPE_NOTE_OFF)
-// 		{
-// 			message->status = MIDI_MSG_TYPE_NOTE_OFF;
-// 		}
-// 		if (USART_ReceiveData(MIDI_USART_PORT) == MIDI_MSG_TYPE_NOTE_ON)
-// 		{
-// 			message->status = MIDI_MSG_TYPE_NOTE_ON;
-// 		}
-// 		midi_raw_buffer[midi_buffer_counter++] = USART_ReceiveData(MIDI_USART_PORT);
-// 		delay_for(1);
-
-// 		GPIOC->ODR &= ~((uint16_t)0x0002);
-// 	}
-// 	//midi_buffer_counter = 0;
-// }
 
